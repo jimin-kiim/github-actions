@@ -20,10 +20,14 @@ jobs:
             - uses: actions/setup-node@v2
               with:
                 node-version: ${{ matrix.node-version }}
+                
             - name: Install dependencies
               run: npm install
+              working-directory: ./ci
+
             - name: Run tests
               run: npm test
+              working-directory: ./ci
 
     build-and-push-image:
         needs: test
@@ -53,6 +57,7 @@ jobs:
                 echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
                 chmod 600 ~/.ssh/id_rsa
                 ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
             - name: Check if Docker is installed
               id: check-docker
               run: | 
