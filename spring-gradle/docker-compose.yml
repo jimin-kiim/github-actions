@@ -1,0 +1,5 @@
+services:
+  app-image:
+    image: ${DOCKER_USERNAME}/backend-deploy:${IMAGE_TAG}
+    ports: 
+      - "8080:8080"
