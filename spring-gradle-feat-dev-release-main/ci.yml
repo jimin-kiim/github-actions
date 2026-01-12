@@ -25,6 +25,7 @@ jobs:
         with: 
           distribution: 'temurin'
           java-version: '17'
+          cache: gradle
           
       - name: Build (no test)
         run: ./gradlew build -x test
@@ -52,6 +53,7 @@ jobs:
         with: 
           distribution: 'temurin'
           java-version: '17'
+          cache: gradle
 
       # develop: 단위 테스트
       - name: Unit test (develop only)
@@ -86,6 +88,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: gradle
 
       - name: Sonar Cloud scan 
         env: 
