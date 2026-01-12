@@ -3,7 +3,7 @@ name: Backend CI
 on:
   pull_request: 
     branches: [ develop, release, main ]
-    types: [ opened, reopened ]
+    types: [ opened, synchronize, reopened ]
 
 jobs:
   # ----------------------------
@@ -12,8 +12,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    outputs:
-      base: ${{ steps.mera.ouputs.base }}
 
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +43,7 @@ jobs:
     name: Test (unit/integration)
     runs-on: ubuntu-latest
     needs: build
-    if: ${{ github.base_ref != 'main'}}
+    if: ${{ github.base_ref != 'main' }}
     steps: 
       - uses: actions/checkout@v4
 
@@ -69,7 +67,7 @@ jobs:
       - name: JaCoCo verification (develop only)
         if: ${{ github.base_ref == 'develop' }}
         env:
-          COVERAGE_MIN: '0,0'
+          COVERAGE_MIN: '0.0'
         run: ./gradlew test jacocoTestReport jacocoTestCoverageVerification -PCOVERAGE_MIN=${{ env.COVERAGE_MIN }}
   
   # ----------------------------
@@ -78,7 +76,7 @@ jobs:
   static_analysis:
     name: Static Analysis (Sonar Cloud)
     runs-on: ubuntu-latest
-    needs: build
+    needs: test
     if: ${{ github.base_ref == 'develop' || github.base_ref == 'release' }}
     steps:
       - uses: actions/checkout@v4
@@ -92,8 +90,7 @@ jobs:
       - name: Sonar Cloud scan 
         env: 
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run:
-          ./gradlew sonar 
+        run: ./gradlew sonar 
 
   # ----------------------------
   # 4. Artifacts (develop / release)
@@ -117,42 +114,42 @@ jobs:
       - name: Upload jar
         uses: actions/upload-artifact@v4
         with:
-          name: be-jar_${{ steps.meta.outputs.short_sha }}
+          name: verified-be-jar_${{ steps.meta.outputs.short_sha }}
           path: artifact/*.jar
           retention-days: ${{ github.base_ref == 'develop' && 90 || 30}}
 
-    main_archive:
-      name: Archive release to S3
-      runs-on: ubuntu-latest
-      needs: build
-      if: ${{ github.base_ref == 'main' }}
+  main_archive:
+    name: Archive release to S3
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.base_ref == 'main' }}
 
-      steps:
-        - name: Set meta
-          id: meta
-          run: |
-            echo "timestamp=${date -u + '%Y%m%d-%H%M%S'}" >> $GITHUB_OUTPUT
-            echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
-        
-        - name: Download built jar
-          uses: actions/download-artifact@v4
-          with: 
-            name: be-jar_${{ steps.meta.outputs.short_sha }}
-            path: artifact
+    steps:
+      - name: Set meta
+        id: meta
+        run: |
+          echo "timestamp=$(date -u +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+      
+      - name: Download built jar
+        uses: actions/download-artifact@v4
+        with: 
+          name: be-jar_${{ steps.meta.outputs.short_sha }}
+          path: artifact
 
-        - name: Configure AWS credentials 
-          uses: aws-actions/configure-aws-credentials@v4
-          with:
-            role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-            aws-region: ap-northeast-2
+      - name: Configure AWS credentials 
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ap-northeast-2
 
-        - name: Upload jar to S3
-          env:
-            BUCKET: ${{ secrets.RELEASE_BUCKET }}
-            PREFIX: releases/${{ steps.meta.outputs.timestamp }}_${{ steps.meta.outputs.short_sha }}
-          run: |
-            aws s3 cp artifact/ \
-              s3://$BUCKET/$PREFIX/backend/ \
-              --recursive \
-              --exclude "*" \
-              --include "*.jar"
+      - name: Upload jar to S3
+        env:
+          BUCKET: ${{ secrets.RELEASE_BUCKET }}
+          PREFIX: releases/${{ steps.meta.outputs.timestamp }}_${{ steps.meta.outputs.short_sha }}
+        run: |
+          aws s3 cp artifact/ \
+            s3://$BUCKET/$PREFIX/backend/ \
+            --recursive \
+            --exclude "*" \
+            --include "*.jar"
